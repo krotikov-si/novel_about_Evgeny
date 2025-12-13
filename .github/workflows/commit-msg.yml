@@ -11,20 +11,51 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Check commit messages
+      - name: Check commit messages (Chapter/Stanza/Epigraph)
         shell: bash
         run: |
           set -euo pipefail
+
           base="${{ github.event.pull_request.base.sha }}"
+          roman_1_100='^(C|XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$'
 
           while read -r sha; do
-            msg="$(git log -1 --pretty=%B "$sha")"
-            if ! [[ "$msg" =~ Chapter[[:space:]]+([1-8]) ]]; then
-              echo "❌ Commit $sha: missing Chapter 1-8"
+            subject="$(git log -1 --pretty=%s "$sha")"
+            msg="$(git log -1 --pretty=%B "$sha" | sed -e 's/\r$//')"
+
+            # Пропускаем merge/revert коммиты
+            if [[ "$subject" =~ ^(Merge|Revert)\b ]]; then
+              continue
+            fi
+
+            # Chapter 1–8 обязателен всегда
+            if ! [[ "$msg" =~ (^|[^[:alnum:]_])Chapter[[:space:]]+([1-8])([^[:alnum:]_]|$) ]]; then
+              echo "❌ Commit $sha: missing/invalid Chapter (Chapter 1–8)"
+              echo "---- message ----"
+              echo "$msg"
+              exit 1
+            fi
+
+            # Если Epigraph — stanza не нужна
+            if [[ "$msg" =~ (^|[^[:alnum:]_])[Ee][Pp][Ii][Gg][Rr][Aa][Pp][Hh]([^[:alnum:]_]|$) ]]; then
+              continue
+            fi
+
+            # Иначе нужна Stanza <Roman>
+            if ! [[ "$msg" =~ (^|[^[:alnum:]_])Stanza[[:space:]]+([IVXLCDMivxlcdm]+)([^[:alnum:]_]|$) ]]; then
+              echo "❌ Commit $sha: missing Stanza <Roman>"
+              echo "---- message ----"
+              echo "$msg"
+              exit 1
+            fi
+
+            stanza="${BASH_REMATCH[2]^^}"
+            if ! [[ "$stanza" =~ $roman_1_100 ]]; then
+              echo "❌ Commit $sha: invalid Stanza Roman numeral (I..C). Got: $stanza"
               echo "---- message ----"
               echo "$msg"
               exit 1
             fi
           done < <(git rev-list --no-merges "$base..HEAD")
 
-          echo "✅ Commit messages: OK"
+          echo "✅ Commit message check passed"
