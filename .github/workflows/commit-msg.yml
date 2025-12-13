@@ -13,7 +13,15 @@ jobs:
 
       - name: Check commit messages
         run: |
-          range="${{ github.event.pull_request.base.sha }}..HEAD"
-          git log "$range" --pretty=%B | while read -r line; do
-            [[ "$line" =~ Chapter[[:space:]]+[1-8] ]] || exit 1
-          done
+          base="${{ github.event.pull_request.base.sha }}"
+
+while read -r sha; do
+  msg="$(git log -1 --pretty=%B "$sha")"
+  if ! [[ "$msg" =~ Chapter[[:space:]]+([1-8]) ]]; then
+    echo "❌ Commit $sha: missing Chapter 1-8"
+    echo "$msg"
+    exit 1
+  fi
+done < <(git rev-list --no-merges "$base..HEAD")
+
+echo "✅ Commit messages: OK"
