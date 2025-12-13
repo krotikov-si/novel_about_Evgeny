@@ -1,0 +1,19 @@
+name: Commit message check
+
+on:
+  pull_request:
+
+jobs:
+  commit-msg:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check commit messages
+        run: |
+          range="${{ github.event.pull_request.base.sha }}..HEAD"
+          git log "$range" --pretty=%B | while read -r line; do
+            [[ "$line" =~ Chapter[[:space:]]+[1-8] ]] || exit 1
+          done
