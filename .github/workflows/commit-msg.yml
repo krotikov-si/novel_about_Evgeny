@@ -12,16 +12,19 @@ jobs:
           fetch-depth: 0
 
       - name: Check commit messages
+        shell: bash
         run: |
+          set -euo pipefail
           base="${{ github.event.pull_request.base.sha }}"
 
-while read -r sha; do
-  msg="$(git log -1 --pretty=%B "$sha")"
-  if ! [[ "$msg" =~ Chapter[[:space:]]+([1-8]) ]]; then
-    echo "❌ Commit $sha: missing Chapter 1-8"
-    echo "$msg"
-    exit 1
-  fi
-done < <(git rev-list --no-merges "$base..HEAD")
+          while read -r sha; do
+            msg="$(git log -1 --pretty=%B "$sha")"
+            if ! [[ "$msg" =~ Chapter[[:space:]]+([1-8]) ]]; then
+              echo "❌ Commit $sha: missing Chapter 1-8"
+              echo "---- message ----"
+              echo "$msg"
+              exit 1
+            fi
+          done < <(git rev-list --no-merges "$base..HEAD")
 
-echo "✅ Commit messages: OK"
+          echo "✅ Commit messages: OK"
